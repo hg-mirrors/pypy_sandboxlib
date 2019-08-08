@@ -1,0 +1,7 @@
+syntax: glob
+*~
+*.py[co]
+.*.swp
+sandboxlib/_commonstruct_cffi.*
+build
+sandbox-2
