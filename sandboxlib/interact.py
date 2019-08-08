@@ -1,5 +1,7 @@
 import sys, types
 import subprocess
+import errno
+import time
 from . import sandboxio
 
 
@@ -16,6 +18,16 @@ def signature(sig):
         return func
     return decorator
 
+def nosys(sig):
+    assert sig.endswith('i'), (
+        "nosys() can only be used for function signatures returning 'i', "
+        "not for %s" % (sig,))
+    @signature(sig)
+    def s_nosys(self, *args):
+        self.sandio.set_errno(errno.ENOSYS)
+        return -1
+    return s_nosys
+
 
 class VirtualizedProc(object):
     """Control a virtualized sandboxed process, which is given a custom
@@ -23,11 +35,14 @@ class VirtualizedProc(object):
     """
     virtual_env = {}
     virtual_cwd = '/tmp'
+    use_virtual_time = True
+    time_base = time.mktime((2019, 8, 1, 0, 0, 0, 0, 0, 0))   # Aug 1st, 2019
 
     def __init__(self, args):
         self.popen = subprocess.Popen(args, stdin=subprocess.PIPE,
                                             stdout=subprocess.PIPE)
         self.sandio = sandboxio.SandboxedIO(self.popen)
+        self.time_at_start = time.time()
 
         #print("Sandboxed subprocess is pid %d" % (self.popen.pid,))
         #print("Press Enter to continue...")
@@ -92,6 +107,11 @@ class VirtualizedProc(object):
         else:
             return 0
 
+    def handle_missing_signature(self, msg, args):
+        self.sandio.close()
+        raise Exception("subprocess tries to call %s, terminating it" % (
+            msg,))
+
     @signature("write(ipi)i")
     def s_write(self, fd, buf, count):
         assert fd == 1
@@ -102,3 +122,33 @@ class VirtualizedProc(object):
     @signature("get_environ()p")
     def s_get_environ(self):
         return self.sandio.malloc(b"\x00" * sandboxio._ptr_size)
+
+    @signature("getenv(p)p")
+    def s_getenv(self, name):
+        return sandboxio.Ptr(0)
+
+    s_uname = nosys("uname(p)i")
+    s_gettimeofday = nosys("gettimeofday(pp)i")
+    
+    @signature("open(pii)i")
+    def s_open(self, p_pathname, flags, mode):
+        pathname = self.sandio.read_charp(p_pathname)
+        print("failing open: %r, %s, %s" % (pathname, flags, mode))
+        self.sandio.set_errno(errno.ENOENT)
+        return -1
+
+    @signature("time(p)i")
+    def s_time(self, tloc):
+        if tloc.addr != 0:
+            raise Exception("only time(NULL) is supported")
+        t = time.time()
+        if self.use_virtual_time:
+            t -= self.time_at_start
+            t += self.time_base
+        return int(t)
+
+    @signature("stat64(pp)i")
+    def s_stat(self, p_pathname, p_statbuf):
+        pathname = self.sandio.read_charp(p_pathname)
+        print("stat: %r" % (pathname,))
+        assert 0
