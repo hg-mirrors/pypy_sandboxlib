@@ -4,4 +4,3 @@ syntax: glob
 .*.swp
 sandboxlib/_commonstruct_cffi.*
 build
-sandbox-2
