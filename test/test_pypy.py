@@ -5,12 +5,18 @@ from . import support
 
 
 class TestVirtualizedProc(support.BaseTest):
+
     class vproccls(MixPyPy, MixGrabOutput, VirtualizedProc):
-        pass
+        debug_errors = True
+
+
+    missing_ok = set([
+        'ctermid',
+    ])
 
     def test_check_dump(self):
         vp = self.execute(['/tmp/pypy'], env={"RPY_SANDBOX_DUMP": "1"})
-        errors = vp.check_dump(self.popen.stdout.read())
+        errors = vp.check_dump(self.popen.stdout.read(), self.missing_ok)
         for error in errors:
             print(error)
         assert not errors

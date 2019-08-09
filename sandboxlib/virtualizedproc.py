@@ -30,6 +30,8 @@ def sigerror(sig, error=errno.ENOSYS, returns=-1):
 
     @signature(sig)
     def s_error(self, *args):
+        if self.debug_errors:
+            sys.stderr.write("subprocess called stub %s\n" % sig)
         self.sandio.set_errno(error)
         return returns
     return s_error
@@ -39,6 +41,14 @@ class VirtualizedProc(object):
     """Controls a virtualized sandboxed process, which is given a custom
     view on the filesystem and a custom environment.
     """
+    debug_errors = False
+    virtual_uid = 1000
+    virtual_gid = 1000
+    virtual_pid = 4200
+    virtual_time = time.mktime((2019, 8, 1, 0, 0, 0, 0, 0, 0))
+    # ^^^ Aug 1st, 2019.  Subclasses can overwrite with a property
+    # to get the current time dynamically, too
+
 
     def __init__(self, child_stdin, child_stdout):
         self.sandio = sandboxio.SandboxedIO(child_stdin, child_stdout)
@@ -55,7 +65,7 @@ class VirtualizedProc(object):
         return funcs
 
     @classmethod
-    def check_dump(cls, dump):
+    def check_dump(cls, dump, missing_ok=set()):
         errors = []
         cls_signatures = cls.collect_signatures()
         dump = dump.decode('ascii')
@@ -71,7 +81,8 @@ class VirtualizedProc(object):
                                   (sys.platform, value))
             elif key == "Funcs":
                 for fnname in value.split(' '):
-                    if fnname.encode('ascii') not in cls_signatures:
+                    if (fnname.encode('ascii') not in cls_signatures and
+                            fnname not in missing_ok):
                         errors.append("Sandboxed function signature not "
                                       "implemented: %s" % (fnname,))
         return errors
@@ -96,24 +107,102 @@ class VirtualizedProc(object):
         raise Exception("subprocess tries to call %s, terminating it" % (
             msg,))
 
-    s_gettimeofday = sigerror("gettimeofday(pp)i")
-    s_lstat64 = sigerror("lstat64(pp)i")
-    s_open = sigerror("open(pii)i")
-    s_stat64 = sigerror("stat64(pp)i")
-    s_write = sigerror("write(ipi)i")
-    s_uname = sigerror("uname(p)i")
+    s_access         = sigerror("access(pi)i")
+    s_chdir          = sigerror("chdir(p)i")
+    s_chmod          = sigerror("chmod(pi)i")
+    s_chown          = sigerror("chown(pii)i")
+    s_chroot         = sigerror("chroot(p)i")
+    s_clock_getres   = sigerror("clock_getres(ip)i")
+    s_clock_gettime  = sigerror("clock_gettime(ip)i")
+    s_close          = sigerror("close(i)i")
+    s_closedir       = sigerror("closedir(p)i")
+    s_confstr        = sigerror("confstr(ipi)i", errno.EINVAL, 0)
+    s_dup            = sigerror("dup(i)i")
+    s_dup2           = sigerror("dup2(ii)i")
+    s_execv          = sigerror("execv(pp)i")
+    s_execve         = sigerror("execve(ppp)i")
+    s_fchdir         = sigerror("fchdir(i)i")
+    s_fchmod         = sigerror("fchmod(ii)i")
+    s_fchown         = sigerror("fchown(iii)i")
+    s_fcntl          = sigerror("fcntl(iii)i")
+    s_fdatasync      = sigerror("fdatasync(i)i")
+    s_fork           = sigerror("fork()i")
+    s_forkpty        = sigerror("forkpty(pppp)i")
+    s_fpathconf      = sigerror("fpathconf(ii)i")
+    s_fstat64        = sigerror("fstat64(ip)i")
+    s_fstatvfs       = sigerror("fstatvfs(ip)i")
+    s_fsync          = sigerror("fsync(i)i")
+    s_ftruncate      = sigerror("ftruncate(ii)i")
+    s_getloadavg     = sigerror("getloadavg(pi)i")
+    s_getlogin       = sigerror("getlogin()p", returns=NULL)
+    s_getpgid        = sigerror("getpgid(i)i")
+    s_getpgrp        = sigerror("getpgrp()i")    # supposed not to fail...
+    s_getrusage      = sigerror("getrusage(ip)i")
+    s_getsid         = sigerror("getsid(i)i")
+    s_gettimeofday   = sigerror("gettimeofday(pp)i")
+    s_initgroups     = sigerror("initgroups(pi)i", errno.EPERM)
+    s_isatty         = sigerror("isatty(i)i")
+    s_kill           = sigerror("kill(ii)i")
+    s_killpg         = sigerror("killpg(ii)i")
+    s_lchown         = sigerror("lchown(pii)i")
+    s_link           = sigerror("link(pp)i")
+    s_lseek          = sigerror("lseek(iii)i")
+    s_lstat64        = sigerror("lstat64(pp)i")
+    s_mkdir          = sigerror("mkdir(pi)i")
+    s_mkfifo         = sigerror("mkfifo(pi)i")
+    s_mknod          = sigerror("mknod(pii)i")
+    s_nice           = sigerror("nice(i)i")
+    s_open           = sigerror("open(pii)i")
+    s_opendir        = sigerror("opendir(p)p", returns=NULL)
+    s_openpty        = sigerror("openpty(ppppp)i")
+    s_pathconf       = sigerror("pathconf(pi)i")
+    s_pipe           = sigerror("pipe(p)i")
+    s_pipe2          = sigerror("pipe2(pi)i")
+    s_putenv         = sigerror("putenv(p)i")
+    s_read           = sigerror("read(ipi)i")
+    s_readdir        = sigerror("readdir(p)p", returns=NULL)
+    s_readlink       = sigerror("readlink(ppi)i")
+    s_rename         = sigerror("rename(pp)i")
+    s_rmdir          = sigerror("rmdir(p)i")
+    s_select         = sigerror("select(ipppp)i")
+    s_setegid        = sigerror("setegid(i)i", errno.EPERM)
+    s_seteuid        = sigerror("seteuid(i)i", errno.EPERM)
+    s_setgid         = sigerror("setgid(i)i", errno.EPERM)
+    s_setgroups      = sigerror("setgroups(ip)i", errno.EPERM)
+    s_setpgid        = sigerror("setpgid(ii)i", errno.EPERM)
+    s_setpgrp        = sigerror("setpgrp()i", errno.EPERM)
+    s_setregid       = sigerror("setregid(ii)i", errno.EPERM)
+    s_setresgid      = sigerror("setresgid(iii)i", errno.EPERM)
+    s_setresuid      = sigerror("setresuid(iii)i", errno.EPERM)
+    s_setreuid       = sigerror("setreuid(ii)i", errno.EPERM)
+    s_setsid         = sigerror("setsid()i")
+    s_setuid         = sigerror("setuid(i)i", errno.EPERM)
+    s_stat64         = sigerror("stat64(pp)i")
+    s_statvfs        = sigerror("statvfs(pp)i")
+    s_symlink        = sigerror("symlink(pp)i")
+    s_sysconf        = sigerror("sysconf(i)i")
+    s_system         = sigerror("system(p)i")
+    s_tcgetpgrp      = sigerror("tcgetpgrp(i)i", errno.ENOTTY)
+    s_tcsetpgrp      = sigerror("tcsetpgrp(ii)i", errno.ENOTTY)
+    s_times          = sigerror("times(p)i")
+    s_ttyname        = sigerror("ttyname(i)p", returns=NULL)
+    s_umask          = sigerror("umask(i)i")
+    s_uname          = sigerror("uname(p)i")
+    s_unlink         = sigerror("unlink(p)i")
+    s_unsetenv       = sigerror("unsetenv(p)i")
+    s_utime          = sigerror("utime(pp)i")
+    s_utimes         = sigerror("utimes(pp)i")
+    s_waitpid        = sigerror("waitpid(ipi)i")
+    s_write          = sigerror("write(ipi)i")
+
 
     @signature("time(p)i")
     def s_time(self, p_tloc):
-        t = int(self.sandbox_time())
+        t = int(self.virtual_time)
         if p_tloc.addr != 0:
             bytes_data = ffi.buffer(ffi.new("time_t *", t))[:]
             self.sandio.write_buffer(p_tloc, bytes_data)
         return t
-
-    def sandbox_time(self):
-        """Default implementation: return a fixed result"""
-        return time.mktime((2019, 8, 1, 0, 0, 0, 0, 0, 0))   # Aug 1st, 2019
 
     @signature("get_environ()p")
     def s_get_environ(self):
@@ -157,3 +246,59 @@ class VirtualizedProc(object):
                 result = result.encode('utf-8')
             self._strerror_cache[n] = self.sandio.malloc(result + b'\x00')
         return self._strerror_cache[n]
+
+    @signature("_exit(i)v")
+    def s__exit(self, exitcode):
+        raise Exception("subprocess called _exit(%s)" % (exitcode,))
+
+    @signature("getuid()i")
+    def s_getuid(self):
+        return self.virtual_uid
+
+    @signature("getgid()i")
+    def s_getgid(self):
+        return self.virtual_gid
+
+    @signature("geteuid()i")
+    def s_geteuid(self):
+        return self.virtual_uid
+
+    @signature("getegid()i")
+    def s_getegid(self):
+        return self.virtual_gid
+
+    @signature("getresuid(ppp)i")
+    def s_geteuid(self, p_ruid, p_euid, p_suid):
+        bytes_data = ffi.buffer(ffi.new("uid_t *", self.virtual_uid))[:]
+        self.sandio.write_buffer(p_ruid, bytes_data)
+        self.sandio.write_buffer(p_euid, bytes_data)
+        self.sandio.write_buffer(p_suid, bytes_data)
+        return 0
+
+    @signature("getresgid(ppp)i")
+    def s_getegid(self, p_rgid, p_egid, p_sgid):
+        bytes_data = ffi.buffer(ffi.new("git_t *", self.virtual_gid))[:]
+        self.sandio.write_buffer(p_rgid, bytes_data)
+        self.sandio.write_buffer(p_egid, bytes_data)
+        self.sandio.write_buffer(p_sgid, bytes_data)
+        return 0
+
+    @signature("getgroups(ip)i")
+    def s_getgroups(self, size, p_list):
+        return 0
+
+    @signature("getpid()i")
+    def s_getpid(self):
+        return self.virtual_pid
+
+    @signature("getppid()i")
+    def s_getppid(self):
+        return 1     # emulates reparented to 'init'
+
+    @signature("pypy__allow_attach()v")
+    def s_pypy__allow_attach(self):
+        return None
+
+    @signature("syscall(ipii)i")
+    def s_syscall(self, *args):
+        raise Exception("subprocess tried to issue a direct syscall()")
