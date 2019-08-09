@@ -105,7 +105,7 @@ class SandboxedIO(object):
         g.flush()
         return self._read(length)
 
-    def read_charp(self, ptr, maxlen=-1):
+    def read_charp(self, ptr, maxlen):
         g = self.child_stdin
         g.write(b"Z" + _pack_two_ptrs(ptr.addr, maxlen))
         g.flush()

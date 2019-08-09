@@ -31,7 +31,7 @@ def sigerror(sig, error=errno.ENOSYS, returns=-1):
     @signature(sig)
     def s_error(self, *args):
         if self.debug_errors:
-            sys.stderr.write("subprocess called stub %s\n" % sig)
+            sys.stderr.write("subprocess: stub: %s\n" % sig)
         self.sandio.set_errno(error)
         return returns
     return s_error
@@ -45,6 +45,7 @@ class VirtualizedProc(object):
     virtual_uid = 1000
     virtual_gid = 1000
     virtual_pid = 4200
+    virtual_cwd = "/"
     virtual_time = time.mktime((2019, 8, 1, 0, 0, 0, 0, 0, 0))
     # ^^^ Aug 1st, 2019.  Subclasses can overwrite with a property
     # to get the current time dynamically, too
@@ -219,16 +220,12 @@ class VirtualizedProc(object):
 
     @signature("getcwd(pi)p")
     def s_getcwd(self, p_buf, size):
-        cwd = self.sandbox_getcwd()
+        cwd = self.virtual_cwd.encode('utf-8')
         if len(cwd) >= size:
             self.sandio.set_errno(errno.ERANGE)
             return NULL
         self.sandio.write_buffer(p_buf, cwd + b'\x00')
         return p_buf
-
-    def sandbox_getcwd(self):
-        """Default implementation: returns '/'."""
-        return b"/"
 
     @signature("strerror(i)p")
     def s_strerror(self, n):

@@ -4,5 +4,7 @@ syntax: glob
 .*.swp
 sandboxlib/_commonstruct_cffi.*
 build
-pypy-c-sandbox
+test/pypy-c-sandbox
+test/lib-python
+test/lib_pypy
 .cache

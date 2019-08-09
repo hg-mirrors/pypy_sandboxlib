@@ -9,12 +9,6 @@ from sandboxlib.mix_grab_output import MixGrabOutput
 
 class BaseTest(object):
 
-    def setup_class(cls):
-        cls.pypy_c_sandbox = os.path.join(os.path.dirname(__file__),
-                                          'pypy-c-sandbox')
-        if not os.path.exists(cls.pypy_c_sandbox):
-            py.test.skip("make a symlink 'pypy-c-sandbox'")
-
     def execute(self, args, env=None):
         assert isinstance(args, (list, tuple))
         myclass = self.vproccls
