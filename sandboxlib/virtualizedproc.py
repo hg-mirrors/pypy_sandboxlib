@@ -268,7 +268,7 @@ class VirtualizedProc(object):
         return self.virtual_gid
 
     @signature("getresuid(ppp)i")
-    def s_geteuid(self, p_ruid, p_euid, p_suid):
+    def s_getresuid(self, p_ruid, p_euid, p_suid):
         bytes_data = ffi.buffer(ffi.new("uid_t *", self.virtual_uid))[:]
         self.sandio.write_buffer(p_ruid, bytes_data)
         self.sandio.write_buffer(p_euid, bytes_data)
@@ -276,7 +276,7 @@ class VirtualizedProc(object):
         return 0
 
     @signature("getresgid(ppp)i")
-    def s_getegid(self, p_rgid, p_egid, p_sgid):
+    def s_getresgid(self, p_rgid, p_egid, p_sgid):
         bytes_data = ffi.buffer(ffi.new("git_t *", self.virtual_gid))[:]
         self.sandio.write_buffer(p_rgid, bytes_data)
         self.sandio.write_buffer(p_egid, bytes_data)
@@ -302,3 +302,12 @@ class VirtualizedProc(object):
     @signature("syscall(ipii)i")
     def s_syscall(self, *args):
         raise Exception("subprocess tried to issue a direct syscall()")
+
+    @signature("ctermid(p)p")
+    def s_ctermid(self, s_p):
+        if s_p.addr != 0:
+            raise Exception("subprocess tried to call ctermid(non-NULL)"
+                            " which is not implemented")
+        if not hasattr(self, '_alloc_dev_tty'):
+            self._alloc_dev_tty = self.sandio.malloc(b"/dev/tty\x00")
+        return self._alloc_dev_tty
