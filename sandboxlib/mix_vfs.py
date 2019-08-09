@@ -228,6 +228,14 @@ class MixVFS(object):
         node = self.vfs_getnode(p_pathname)
         self.vfs_write_stat(p_statbuf, node)
 
+    @vfs_signature("fstat64(ip)i")
+    def s_fstat64(self, fd, p_statbuf):
+        try:
+            f, node = self.vfs_open_fds[fd]
+        except KeyError:
+            raise OSError(errno.EBADF, "bad file descriptor")
+        self.vfs_write_stat(p_statbuf, node)
+
     @vfs_signature("access(pi)i", filearg=0)
     def s_access(self, p_pathname, mode):
         node = self.vfs_getnode(p_pathname)
@@ -250,3 +258,13 @@ class MixVFS(object):
         f = self.vfs_get_file(fd)
         del self.vfs_open_fds[fd]
         f.close()
+
+    @vfs_signature("read(ipi)i")
+    def s_read(self, fd, p_buf, count):
+        f = self.vfs_get_file(fd)
+        if count < 0:
+            count = 0
+        # don't try to read more than 256KB at once here
+        data = f.read(min(count, 256*1024))
+        self.sandio.write_buffer(p_buf, data)
+        return len(data)

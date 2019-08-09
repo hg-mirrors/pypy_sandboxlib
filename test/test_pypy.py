@@ -47,11 +47,11 @@ class TestVirtualizedProc(support.BaseTest):
         assert not errors
 
     def test_starts(self):
-        vp = self.execute(['/bin/pypy', '-c', 'pass'])
+        vp = self.execute(['/bin/pypy', '-S', '-c', 'pass'])
         vp.run()
         self.close()
 
     def test_prints_42(self):
-        vp = self.execute(['/bin/pypy', '-c', 'print(6*7)'])
+        vp = self.execute(['/bin/pypy', '-S', '-c', 'print(6*7)'])
         vp.run()
         self.close()
