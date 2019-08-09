@@ -15,8 +15,10 @@ class Ptr(object):
         return 'Ptr(%s)' % (hex(self.addr),)
 
 
-_ptr_size = struct.calcsize("P")
-_ptr_code = 'q' if _ptr_size == 8 else 'i'
+ptr_size = struct.calcsize("P")
+NULL = Ptr(0)
+
+_ptr_code = 'q' if ptr_size == 8 else 'i'
 _pack_one_ptr = struct.Struct("=" + _ptr_code).pack
 _pack_one_longlong = struct.Struct("=q").pack
 _pack_one_double = struct.Struct("=d").pack
@@ -29,20 +31,9 @@ class SandboxedIO(object):
     _message_decoders = {}
 
 
-    def __init__(self, popen):
-        self.popen = popen
-        self.child_stdin = popen.stdin
-        self.child_stdout = popen.stdout
-
-    def close(self):
-        """Kill the subprocess and close the file descriptors to the pipe.
-        """
-        if self.popen.returncode is None:
-            self.popen.terminate()
-        self.child_stdin.close()
-        self.child_stdout.close()
-        if self.popen.stderr is not None:
-            self.popen.stderr.close()
+    def __init__(self, child_stdin, child_stdout):
+        self.child_stdin = child_stdin
+        self.child_stdout = child_stdout
 
     def _read(self, count):
         result = self.child_stdout.read(count)
@@ -104,6 +95,8 @@ class SandboxedIO(object):
         return msg, args
 
     def read_buffer(self, ptr, length):
+        if length < 0:
+            raise Exception("read_buffer: negative length")
         g = self.child_stdin
         g.write("R" + _pack_two_ptrs(ptr.addr, length))
         g.flush()
@@ -113,7 +106,7 @@ class SandboxedIO(object):
         g = self.child_stdin
         g.write("Z" + _pack_two_ptrs(ptr.addr, maxlen))
         g.flush()
-        length = _unpack_one_ptr(self._read(_ptr_size))[0]
+        length = _unpack_one_ptr(self._read(ptr_size))[0]
         return self._read(length)
 
     def write_buffer(self, ptr, bytes_data):
@@ -144,7 +137,7 @@ class SandboxedIO(object):
         g.write("M" + _pack_one_ptr(len(bytes_data)))
         g.write(bytes_data)
         g.flush()
-        addr = _unpack_one_ptr(self._read(_ptr_size))[0]
+        addr = _unpack_one_ptr(self._read(ptr_size))[0]
         return Ptr(addr)
 
     def free(self, ptr):
