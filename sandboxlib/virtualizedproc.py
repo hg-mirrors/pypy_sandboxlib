@@ -2,7 +2,7 @@ import sys, types
 import os, errno, time
 from . import sandboxio
 from .sandboxio import Ptr, NULL, ptr_size
-from ._commonstruct_cffi import ffi, lib
+from ._commonstruct_cffi import ffi
 
 
 def signature(sig):
@@ -50,7 +50,7 @@ class VirtualizedProc(object):
             for value in cls1.__dict__.values():
                 if type(value) is types.FunctionType and \
                         hasattr(value, '_sandbox_sig_'):
-                    sig = value._sandbox_sig_
+                    sig = value._sandbox_sig_.encode('ascii')
                     funcs.setdefault(sig, value)
         return funcs
 
@@ -58,6 +58,7 @@ class VirtualizedProc(object):
     def check_dump(cls, dump):
         errors = []
         cls_signatures = cls.collect_signatures()
+        dump = dump.decode('ascii')
         for line in dump.splitlines(False):
             key, value = line.split(': ', 1)
             if key == "Version":
@@ -70,7 +71,7 @@ class VirtualizedProc(object):
                                   (sys.platform, value))
             elif key == "Funcs":
                 for fnname in value.split(' '):
-                    if fnname not in cls_signatures:
+                    if fnname.encode('ascii') not in cls_signatures:
                         errors.append("Sandboxed function signature not "
                                       "implemented: %s" % (fnname,))
         return errors

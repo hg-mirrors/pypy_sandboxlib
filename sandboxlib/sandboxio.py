@@ -44,13 +44,15 @@ class SandboxedIO(object):
 
     @staticmethod
     def _make_message_decoder(data):
-        i1 = data.find('(')
-        i2 = data.find(')')
+        i1 = data.find(b'(')
+        i2 = data.find(b')')
         if not (i1 > 0 and i1 < i2 and i2 == len(data) - 2):
             raise SandboxError(
                 "badly formatted data received from the sandboxed process")
         pack_args = ['=']
+        codes = []
         for c in data[i1+1:i2]:
+            if isinstance(c, int): c = chr(c)   # Python 3
             if c == 'p':
                 pack_args.append(_ptr_code)
             elif c == 'i':
@@ -62,8 +64,9 @@ class SandboxedIO(object):
             else:
                 raise SandboxError(
                     "unsupported format string in parentheses: %r" % (data,))
+            codes.append(c)
         unpacker = struct.Struct(''.join(pack_args))
-        decoder = unpacker, data[i1+1:i2]
+        decoder = unpacker, ''.join(codes)
 
         SandboxedIO._message_decoders[data] = decoder
         return decoder
@@ -98,43 +101,45 @@ class SandboxedIO(object):
         if length < 0:
             raise Exception("read_buffer: negative length")
         g = self.child_stdin
-        g.write("R" + _pack_two_ptrs(ptr.addr, length))
+        g.write(b"R" + _pack_two_ptrs(ptr.addr, length))
         g.flush()
         return self._read(length)
 
     def read_charp(self, ptr, maxlen=-1):
         g = self.child_stdin
-        g.write("Z" + _pack_two_ptrs(ptr.addr, maxlen))
+        g.write(b"Z" + _pack_two_ptrs(ptr.addr, maxlen))
         g.flush()
         length = _unpack_one_ptr(self._read(ptr_size))[0]
         return self._read(length)
 
     def write_buffer(self, ptr, bytes_data):
+        assert isinstance(bytes_data, bytes)
         g = self.child_stdin
-        g.write("W" + _pack_two_ptrs(ptr.addr, len(bytes_data)))
+        g.write(b"W" + _pack_two_ptrs(ptr.addr, len(bytes_data)))
         g.write(bytes_data)
         # g.flush() not necessary here
 
     def write_result(self, result):
         g = self.child_stdin
         if result is None:
-            g.write('v')
+            g.write(b'v')
         elif isinstance(result, Ptr):
-            g.write('p' + _pack_one_ptr(result.addr))
+            g.write(b'p' + _pack_one_ptr(result.addr))
         elif isinstance(result, float):
-            g.write('f' + _pack_one_double(result))
+            g.write(b'f' + _pack_one_double(result))
         else:
-            g.write('i' + _pack_one_longlong(result))
+            g.write(b'i' + _pack_one_longlong(result))
         g.flush()
 
     def set_errno(self, err):
         g = self.child_stdin
-        g.write("E" + _pack_one_int(err))
+        g.write(b"E" + _pack_one_int(err))
         # g.flush() not necessary here
 
     def malloc(self, bytes_data):
+        assert isinstance(bytes_data, bytes)
         g = self.child_stdin
-        g.write("M" + _pack_one_ptr(len(bytes_data)))
+        g.write(b"M" + _pack_one_ptr(len(bytes_data)))
         g.write(bytes_data)
         g.flush()
         addr = _unpack_one_ptr(self._read(ptr_size))[0]
@@ -142,5 +147,5 @@ class SandboxedIO(object):
 
     def free(self, ptr):
         g = self.child_stdin
-        g.write("F" + _pack_one_ptr(ptr.addr))
+        g.write(b"F" + _pack_one_ptr(ptr.addr))
         # g.flush() not necessary here

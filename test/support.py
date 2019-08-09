@@ -36,7 +36,7 @@ class BaseTest(object):
             time.sleep(0.05)
 
         if isinstance(self.virtualizedproc, MixGrabOutput):
-            out = self.virtualizedproc.get_all_output()
+            out = self.virtualizedproc.get_all_output().decode('latin1')
             print()
             print('***** Captured stdout/stderr:')
             print(out)
