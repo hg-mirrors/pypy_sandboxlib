@@ -3,6 +3,9 @@ import cffi
 ffibuilder = cffi.FFI()
 
 ffibuilder.cdef("""
+    #define DT_REG ...
+    #define DT_DIR ...
+
     typedef int... dev_t;
     typedef int... ino_t;
     typedef int... mode_t;
@@ -26,6 +29,16 @@ ffibuilder.cdef("""
        time_t    st_ctime;       /* last status change, integer part only */
        ...;
     };
+
+    struct dirent {
+       ino_t          d_ino;       /* Inode number */
+       off_t          d_off;       /* Not an offset; see below */
+       unsigned short d_reclen;    /* Length of this record */
+       unsigned char  d_type;      /* Type of file; not supported
+                                      by all filesystem types */
+       char           d_name[...]; /* Null-terminated filename */
+       ...;
+    };
 """)
 
 ffibuilder.set_source("sandboxlib._commonstruct_cffi", """
@@ -33,6 +46,7 @@ ffibuilder.set_source("sandboxlib._commonstruct_cffi", """
     #include <sys/types.h>
     #include <sys/stat.h>
     #include <unistd.h>
+    #include <dirent.h>
 
 """)
 

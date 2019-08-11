@@ -30,8 +30,8 @@ class TestVirtualizedProc(support.BaseTest):
                     'lib-python': RealDir(lib_python, exclude=_vfs_exclude),
                     'lib_pypy': RealDir(lib_pypy, exclude=_vfs_exclude),
                     }),
-                 'tmp': Dir({}),
-                 })
+                'tmp': Dir({}),
+                })
         cls.vproccls = PyPyProc
 
 
@@ -54,4 +54,12 @@ class TestVirtualizedProc(support.BaseTest):
     def test_prints_42(self):
         vp = self.execute(['/bin/pypy', '-S', '-c', 'print(6*7)'])
         vp.run()
-        self.close()
+        out = self.close()
+        assert out.endswith('42\n')
+
+    def test_listdir(self):
+        vp = self.execute(['/bin/pypy', '-S', '-c',
+                           'import os; print(os.listdir("/"))'])
+        vp.run()
+        out = self.close()
+        assert out.endswith("['bin', 'tmp']\n")

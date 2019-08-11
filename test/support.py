@@ -29,6 +29,7 @@ class BaseTest(object):
                     "timed out waiting for subprocess to finish")
             time.sleep(0.05)
 
+        out = None
         if isinstance(self.virtualizedproc, MixGrabOutput):
             out = self.virtualizedproc.get_all_output().decode('latin1')
             print()
@@ -38,3 +39,4 @@ class BaseTest(object):
 
         assert self.popen.returncode == 0, (
             "subprocess finished with exit code %r" % (self.popen.returncode,))
+        return out

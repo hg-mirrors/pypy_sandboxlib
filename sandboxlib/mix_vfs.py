@@ -2,7 +2,8 @@ import sys
 import os, errno, stat
 from io import BytesIO
 from .virtualizedproc import signature
-from ._commonstruct_cffi import ffi
+from .sandboxio import NULL
+from ._commonstruct_cffi import ffi, lib
 
 MAX_PATH = 256
 UID = 1000
@@ -22,7 +23,7 @@ class FSObject(object):
             st_ino = self._st_ino = INO_COUNTER
         st_mode = self.kind
         st_mode |= stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-        if stat.S_ISDIR(self.kind):
+        if self.is_dir():
             st_mode |= stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
         if self.read_only:
             st_uid = 0       # read-only files are virtually owned by root
@@ -60,13 +61,16 @@ class FSObject(object):
     def getsize(self):
         return 0
 
+    def is_dir(self):
+        return stat.S_ISDIR(self.kind)
+
 
 class Dir(FSObject):
     kind = stat.S_IFDIR
     def __init__(self, entries={}):
         self.entries = entries
     def keys(self):
-        return self.entries.keys()
+        return sorted(self.entries.keys())
     def join(self, name):
         try:
             return self.entries[name]
@@ -95,7 +99,7 @@ class RealDir(Dir):
             names = [name for name in names if not name.startswith('.')]
         for excl in self.exclude:
             names = [name for name in names if not name.lower().endswith(excl)]
-        return names
+        return sorted(names)
     def join(self, name):
         if name.startswith('.') and not self.show_dotfiles:
             raise OSError(errno.ENOENT, name)
@@ -142,6 +146,14 @@ class RealFile(File):
             raise OSError(e.errno, "open failed")
 
 
+class OpenDir(object):
+    def __init__(self, node):
+        self.node = node
+        self.iter_names = iter(node.keys())
+    def readdir(self):
+        return next(self.iter_names)
+
+
 def vfs_signature(sig, filearg=None):
     def decorate(func):
         @signature(sig)
@@ -172,6 +184,7 @@ class MixVFS(object):
     This should be a hierarchy built using the classes above.
     """
     virtual_fd_range = range(3, 50)
+    VFS_MAX_DIRS_OPEN = 32
 
 
     def __init__(self, *args, **kwds):
@@ -182,6 +195,7 @@ class MixVFS(object):
                 "must pass a vfs_root argument to the constructor, or assign "
                 "a vfs_root class attribute directory in the subclass")
         self.vfs_open_fds = {}
+        self.vfs_open_dirs = {}
         super(MixVFS, self).__init__(*args, **kwds)
 
     def fetch_path(self, p_pathname):
@@ -191,19 +205,22 @@ class MixVFS(object):
 
     def vfs_getnode(self, p_pathname):
         path = self.fetch_path(p_pathname)
-        result = self.vfs_root
-        path = os.path.normpath(path)
+        all_components = [self.vfs_root]
         for name in path.split('/'):
-            if name and name != '.':
-                result = result.join(name)
-        return result
+            if name == '..':
+                if len(all_components) > 1:
+                    del all_components[-1]
+            elif name and name != '.':
+                all_components.append(all_components[-1].join(name))
+        return all_components[-1]
 
     def vfs_write_stat(self, p_statbuf, node):
         ffi_stat = node.stat()
         bytes_data = ffi.buffer(ffi_stat)[:]
         self.sandio.write_buffer(p_statbuf, bytes_data)
 
-    def vfs_allocate_fd(self, f, node=None):
+    def vfs_allocate_fd(self, f, node):
+        assert not node.is_dir()
         for fd in self.virtual_fd_range:
             if fd not in self.vfs_open_fds:
                 self.vfs_open_fds[fd] = (f, node)
@@ -268,3 +285,45 @@ class MixVFS(object):
         data = f.read(min(count, 256*1024))
         self.sandio.write_buffer(p_buf, data)
         return len(data)
+
+    @vfs_signature("opendir(p)p")
+    def s_opendir(self, p_name):
+        # we pretend that "DIR *" pointers are actually implemented as
+        # "struct dirent *", where we store the result of each readdir()
+        if len(self.vfs_open_dirs) >= self.VFS_MAX_DIRS_OPEN:
+            raise OSError(errno.EMFILE, "trying to open too many directories")
+        node = self.vfs_getnode(p_name)
+        fdir = OpenDir(node)
+        p = self.sandio.malloc(b'\x00' * ffi.sizeof("struct dirent"))
+        self.vfs_open_dirs[p.addr] = fdir
+        return p
+
+    @vfs_signature("readdir(p)p")
+    def s_readdir(self, p_dir):
+        fdir = self.vfs_open_dirs[p_dir.addr]
+        try:
+            name = fdir.readdir()
+        except StopIteration:
+            return NULL
+        subnode = fdir.node.join(name)
+        st = subnode.stat()
+        dirent = ffi.new("struct dirent *")
+        dirent.d_ino = st.st_ino
+        dirent.d_reclen = ffi.sizeof("struct dirent")
+        if subnode.is_dir():
+            dirent.d_type = lib.DT_DIR
+        else:
+            dirent.d_type = lib.DT_REG
+        name = name.encode('utf-8') + b'\x00'
+        n = len(name)
+        if n > ffi.sizeof(dirent.d_name):
+            raise OSError(errno.EOVERFLOW, subnode)
+        ffi.memmove(dirent.d_name, name, n)
+        bytes_data = ffi.buffer(dirent)[:]
+        self.sandio.write_buffer(p_dir, bytes_data)
+        return p_dir
+
+    @vfs_signature("closedir(p)i")
+    def s_closedir(self, p_dir):
+        del self.vfs_open_dirs[p_dir.addr]
+        self.sandio.free(p_dir)
