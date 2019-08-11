@@ -35,13 +35,9 @@ class TestVirtualizedProc(support.BaseTest):
         cls.vproccls = PyPyProc
 
 
-    missing_ok = set([
-        'ctermid',
-    ])
-
     def test_check_dump(self):
         vp = self.execute(['/tmp/pypy'], env={"RPY_SANDBOX_DUMP": "1"})
-        errors = vp.check_dump(self.popen.stdout.read(), self.missing_ok)
+        errors = vp.check_dump(self.popen.stdout.read())
         for error in errors:
             print(error)
         assert not errors
