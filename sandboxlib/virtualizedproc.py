@@ -196,6 +196,56 @@ class VirtualizedProc(object):
     s_waitpid        = sigerror("waitpid(ipi)i")
     s_write          = sigerror("write(ipi)i")
 
+    # extra functions needed for pypy3
+    s_clock          = sigerror("clock()i")
+    s_clock_settime  = sigerror("clock_settime(ip)i")
+    s_dirfd          = sigerror("dirfd(p)i")
+    s_faccessat      = sigerror("faccessat(ipii)i")
+    s_fchmodat       = sigerror("fchmodat(ipii)i")
+    s_fchownat       = sigerror("fchownat(ipiii)i")
+    s_fdopendir      = sigerror("fdopendir(i)p", returns=NULL)
+    s_fexecve        = sigerror("fexecve(ipp)i")
+    s_fgetxattr      = sigerror("fgetxattr(ippi)i")
+    s_fileno         = sigerror("fileno(p)i", errno.EBADF)
+    s_flistxattr     = sigerror("flistxattr(ipi)i")
+    s_fremovexattr   = sigerror("fremovexattr(ip)i")
+    s_fsetxattr      = sigerror("fsetxattr(ippii)i")
+    s_fstatat64      = sigerror("fstatat64(ippi)i")
+    s_futimens       = sigerror("futimens(ip)i")
+    s_getpriority    = sigerror("getpriority(ii)i")
+    s_getxattr       = sigerror("getxattr(pppi)i")
+    s_ioctl          = sigerror("ioctl(iip)i")
+    s_lgetxattr      = sigerror("lgetxattr(pppi)i")
+    s_linkat         = sigerror("linkat(ipipi)i")
+    s_listxattr      = sigerror("listxattr(ppi)i")
+    s_llistxattr     = sigerror("llistxattr(ppi)i")
+    s_lockf          = sigerror("lockf(iii)i")
+    s_lremovexattr   = sigerror("lremovexattr(pp)i")
+    s_lsetxattr      = sigerror("lsetxattr(pppii)i")
+    s_mkdirat        = sigerror("mkdirat(ipi)i")
+    s_mkfifoat       = sigerror("mkfifoat(ipi)i")
+    s_mknodat        = sigerror("mknodat(ipii)i")
+    s_openat         = sigerror("openat(ipii)i")
+    s_posix_fadvise  = sigerror("posix_fadvise(iiii)i", returns=errno.ENOSYS)
+    s_posix_fallocate= sigerror("posix_fallocate(iii)i", returns=errno.ENOSYS)
+    s_pread          = sigerror("pread(ipii)i")
+    s_pwrite         = sigerror("pwrite(ipii)i")
+    s_readlinkat     = sigerror("readlinkat(ippi)i")
+    s_removexattr    = sigerror("removexattr(pp)i")
+    s_renameat       = sigerror("renameat(ipip)i")
+    s_rpy_dup2_noninheritable = sigerror("rpy_dup2_noninheritable(ii)i")
+    s_rpy_dup_noninheritable = sigerror("rpy_dup_noninheritable(i)i")
+    s_rpy_get_status_flags= sigerror("rpy_get_status_flags(i)i")
+    s_rpy_set_status_flags= sigerror("rpy_set_status_flags(ii)i")
+    s_sched_get_priority_max= sigerror("sched_get_priority_max(i)i")
+    s_sched_get_priority_min= sigerror("sched_get_priority_min(i)i")
+    s_sendfile       = sigerror("sendfile(iipi)i")
+    s_setpriority    = sigerror("setpriority(iii)i")
+    s_setxattr       = sigerror("setxattr(pppii)i")
+    s_symlinkat      = sigerror("symlinkat(pip)i")
+    s_unlinkat       = sigerror("unlinkat(ipi)i")
+    s_utimensat      = sigerror("utimensat(ippi)i")
+
 
     @signature("time(p)i")
     def s_time(self, p_tloc):
@@ -308,3 +358,33 @@ class VirtualizedProc(object):
         if not hasattr(self, '_alloc_dev_tty'):
             self._alloc_dev_tty = self.sandio.malloc(b"/dev/tty\x00")
         return self._alloc_dev_tty
+
+    @signature("get_stdout()p")
+    def s_get_stdout(self, *args):
+        raise Exception("subprocess calls the unsupported RPython "
+                        "get_stdout() helper")
+
+    @signature("rewinddir(p)v")
+    def s_rewinddir(self, *args):
+        raise Exception("subprocess calls the unsupported rewinddir() function")
+
+    @signature("rpy_cpu_count()i")
+    def s_rpy_cpu_count(self, *args):
+        return 1
+
+    @signature("rpy_get_inheritable(i)i")
+    def s_rpy_get_inheritable(self, fd):
+        return 0     # ignored
+
+    @signature("rpy_set_inheritable(ii)i")
+    def s_rpy_set_inheritable(self, fd, inheritable):
+        return 0     # ignored
+
+    @signature("sched_yield()i")
+    def s_sched_yield(self):
+        return 0     # always succeeds
+
+    @signature("sync()v")
+    def s_sync(self):
+        if self.debug_errors:
+            sys.stderr.write("subprocess: sync ignored\n")

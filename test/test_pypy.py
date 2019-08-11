@@ -56,14 +56,16 @@ class TestVirtualizedProc(support.BaseTest):
     def test_listdir_forbidden(self):
         vp = self.execute(['/bin/pypy', '-S', '-c',
                            'import os; os.listdir("/")'])
+        self.virtualizedproc.virtual_fd_directories = 0
         vp.run()
         out = self.close(expected_exitcode=1)
-        assert 'Operation not permitted:' in out
+        assert ('Operation not permitted:' in out          # pypy2
+                or "No module named 'encodings'" in out)   # pypy3
 
     def test_listdir(self):
         vp = self.execute(['/bin/pypy', '-S', '-c',
                            'import os; print(os.listdir("/"))'])
-        self.virtualizedproc.virtual_fd_directories = 1
+        self.virtualizedproc.virtual_fd_directories = 20
         vp.run()
         out = self.close()
         assert out.endswith("['bin', 'tmp']\n")

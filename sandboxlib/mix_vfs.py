@@ -194,10 +194,10 @@ class MixVFS(object):
     # subprocess needs more fd's.
     virtual_fd_range = range(3, 50)
 
-    # This is the number of simultaneous open directories.  The default
-    # value of 0 prevents opendir() from working at all, which is fine
-    # in some situations.  You can increase it, e.g. to 20, if you need it.
-    virtual_fd_directories = 0
+    # This is the number of simultaneous open directories.  The value of 0
+    # prevnts opendir() from working at all, which is fine in some situations
+    # (notably with pypy2-sandbox, but not with pypy3-sandbox).
+    virtual_fd_directories = 20
 
 
     def __init__(self, *args, **kwds):
@@ -248,6 +248,17 @@ class MixVFS(object):
         except KeyError:
             raise OSError(errno.EBADF, "bad file descriptor")
 
+    def vfs_stat_for_pipe(self, p_statbuf):
+        ffi_stat = ffi.new("struct stat *", dict(
+            st_ino = 120,
+            st_dev = 12,
+            st_nlink = 1,
+            st_mode = stat.S_IFIFO | stat.S_IRUSR | stat.S_IWUSR,
+            st_uid = UID,
+            st_gid = GID))
+        bytes_data = ffi.buffer(ffi_stat)[:]
+        self.sandio.write_buffer(p_statbuf, bytes_data)
+
     @vfs_signature("stat64(pp)i", filearg=0)
     def s_stat64(self, p_pathname, p_statbuf):
         node = self.vfs_getnode(p_pathname)
@@ -263,7 +274,10 @@ class MixVFS(object):
         try:
             f, node = self.vfs_open_fds[fd]
         except KeyError:
-            raise OSError(errno.EBADF, "bad file descriptor")
+            if fd in (0, 1, 2):
+                self.vfs_stat_for_pipe(p_statbuf)
+                return
+            return super(MixVFS, self).s_fstat64(fd, p_statbuf)
         self.vfs_write_stat(p_statbuf, node)
 
     @vfs_signature("access(pi)i", filearg=0)
@@ -299,7 +313,15 @@ class MixVFS(object):
         self.sandio.write_buffer(p_buf, data)
         return len(data)
 
-    @vfs_signature("opendir(p)p")
+    @vfs_signature("lseek(iii)i")
+    def s_lseek(self, fd, offset, whence):
+        if whence not in (0, 1, 2):
+            raise OSError(errno.EINVAL, "bad value for lseek(whence)")
+        f = self.vfs_get_file(fd)
+        f.seek(offset, whence)
+        return f.tell()
+
+    @vfs_signature("opendir(p)p", filearg=0)
     def s_opendir(self, p_name):
         # we pretend that "DIR *" pointers are actually implemented as
         # "struct dirent *", where we store the result of each readdir()
