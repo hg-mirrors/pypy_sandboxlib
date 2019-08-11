@@ -19,7 +19,7 @@ class BaseTest(object):
         self.virtualizedproc = myclass(popen.stdin, popen.stdout)
         return self.virtualizedproc
 
-    def close(self):
+    def close(self, expected_exitcode=0):
         timeout = 3.0
         while self.popen.poll() is None:
             timeout -= 0.05
@@ -37,6 +37,6 @@ class BaseTest(object):
             print(out)
             print('*****')
 
-        assert self.popen.returncode == 0, (
+        assert self.popen.returncode == expected_exitcode, (
             "subprocess finished with exit code %r" % (self.popen.returncode,))
         return out

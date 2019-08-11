@@ -57,9 +57,17 @@ class TestVirtualizedProc(support.BaseTest):
         out = self.close()
         assert out.endswith('42\n')
 
+    def test_listdir_forbidden(self):
+        vp = self.execute(['/bin/pypy', '-S', '-c',
+                           'import os; os.listdir("/")'])
+        vp.run()
+        out = self.close(expected_exitcode=1)
+        assert 'Operation not permitted:' in out
+
     def test_listdir(self):
         vp = self.execute(['/bin/pypy', '-S', '-c',
                            'import os; print(os.listdir("/"))'])
+        self.virtualizedproc.virtual_fd_directories = 1
         vp.run()
         out = self.close()
         assert out.endswith("['bin', 'tmp']\n")

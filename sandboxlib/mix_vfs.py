@@ -171,7 +171,13 @@ def vfs_signature(sig, filearg=None):
                         errno.errorcode.get(e.errno, 'Errno %s' % e.errno))
                     sys.stderr.write(msg)
                 self.sandio.set_errno(e.errno)
-                return -1
+                if sig.endswith('i'):
+                    return -1
+                if sig.endswith('p'):
+                    return NULL
+                raise AssertionError(
+                    "vfs_signature(%r): should end in 'i' or 'p'" %
+                    (sig,))
         return wrapper
     return decorate
 
@@ -183,8 +189,15 @@ class MixVFS(object):
     adding an attribute 'vfs_root' on the subclass directory.
     This should be a hierarchy built using the classes above.
     """
+
+    # The allowed 'fd' to return.  You might increase the range if your
+    # subprocess needs more fd's.
     virtual_fd_range = range(3, 50)
-    VFS_MAX_DIRS_OPEN = 32
+
+    # This is the number of simultaneous open directories.  The default
+    # value of 0 prevents opendir() from working at all, which is fine
+    # in some situations.  You can increase it, e.g. to 20, if you need it.
+    virtual_fd_directories = 0
 
 
     def __init__(self, *args, **kwds):
@@ -290,7 +303,9 @@ class MixVFS(object):
     def s_opendir(self, p_name):
         # we pretend that "DIR *" pointers are actually implemented as
         # "struct dirent *", where we store the result of each readdir()
-        if len(self.vfs_open_dirs) >= self.VFS_MAX_DIRS_OPEN:
+        if len(self.vfs_open_dirs) >= self.virtual_fd_directories:
+            if self.virtual_fd_directories == 0:
+                raise OSError(errno.EPERM, "opendir() not allowed")
             raise OSError(errno.EMFILE, "trying to open too many directories")
         node = self.vfs_getnode(p_name)
         fdir = OpenDir(node)
