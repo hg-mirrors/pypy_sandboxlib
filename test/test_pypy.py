@@ -1,3 +1,4 @@
+import pytest
 import os
 from io import BytesIO
 from sandboxlib import VirtualizedProc
@@ -13,23 +14,25 @@ class TestVirtualizedProc(support.BaseTest):
         cls.pypy_c_sandbox = os.path.join(os.path.dirname(__file__),
                                           'pypy-c-sandbox')
         if not os.path.exists(cls.pypy_c_sandbox):
-            py.test.skip("make a symlink 'pypy-c-sandbox'")
+            pytest.skip("make a symlink 'pypy-c-sandbox'")
 
-        lib_python = os.path.join(os.path.dirname(__file__), 'lib-python')
-        lib_pypy = os.path.join(os.path.dirname(__file__), 'lib_pypy')
+        searchdir = os.path.realpath(cls.pypy_c_sandbox)
+        while True:
+            search1 = os.path.dirname(searchdir)
+            assert len(search1) < len(searchdir)
+            searchdir = search1
+            lib_python = os.path.join(searchdir, 'lib-python')
+            lib_pypy = os.path.join(searchdir, 'lib_pypy')
+            if os.path.isdir(lib_python) and os.path.isdir(lib_pypy):
+                break
 
         class PyPyProc(MixPyPy, MixVFS, MixGrabOutput, VirtualizedProc):
             debug_errors = True
 
             virtual_cwd = "/tmp"
 
-            _vfs_exclude = ['.pyc', '.pyo']
             vfs_root = Dir({
-                'bin': Dir({
-                    'pypy': File('', mode=0111),
-                    'lib-python': RealDir(lib_python, exclude=_vfs_exclude),
-                    'lib_pypy': RealDir(lib_pypy, exclude=_vfs_exclude),
-                    }),
+                'bin': MixVFS.vfs_pypy_lib_directory(searchdir),
                 'tmp': Dir({}),
                 })
         cls.vproccls = PyPyProc

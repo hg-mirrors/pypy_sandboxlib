@@ -164,7 +164,7 @@ def vfs_signature(sig, filearg=None):
                 if self.debug_errors:
                     filename = ""
                     if filearg is not None:
-                        filename = repr(self.fetch_path(args[filearg]))
+                        filename = repr(self.vfs_fetch_path(args[filearg]))
                     msg = "subprocess: vfs: %s(%s) => %s\n" % (
                         sig.split('(')[0],
                         filename,
@@ -211,13 +211,38 @@ class MixVFS(object):
         self.vfs_open_dirs = {}
         super(MixVFS, self).__init__(*args, **kwds)
 
-    def fetch_path(self, p_pathname):
+    @staticmethod
+    def vfs_pypy_lib_directory(library_path, exclude=["*.pyc", "*.pyo"]):
+        """Returns a Dir() instance that emulates the settings of a binary
+        executable '.../pypy' and the standard library '.../lib-python' and
+        '.../lib_pypy'.  This Dir() should be put inside the vfs_root
+        somewhere, like under '/lib' for example, and then when you actually
+        start the subprocess you give it args[0]=="/lib/pypy".
+        (E.g. with subprocess.Popen you make sure args[0]=="/lib/pypy" but
+        you specify a different executable="/real/path/to/pypy-sandbox".)
+
+        'library_path' must be the real directory that contains the
+        'lib-python' and 'lib_pypy' directories to use.
+        """
+        lib_python = os.path.join(library_path, "lib-python")
+        lib_pypy = os.path.join(library_path, "lib_pypy")
+        if not os.path.isdir(lib_python):
+            raise IOError("directory not found: %r" % (lib_python,))
+        if not os.path.isdir(lib_pypy):
+            raise IOError("directory not found: %r" % (lib_pypy,))
+        return Dir({
+                 'pypy': File('', mode=0111),
+                 'lib-python': RealDir(lib_python, exclude=exclude),
+                 'lib_pypy': RealDir(lib_pypy, exclude=exclude),
+                 })
+
+    def vfs_fetch_path(self, p_pathname):
         if isinstance(p_pathname, str):
             return p_pathname
         return self.sandio.read_charp(p_pathname, MAX_PATH).decode('utf-8')
 
     def vfs_getnode(self, p_pathname):
-        path = self.fetch_path(p_pathname)
+        path = self.vfs_fetch_path(p_pathname)
         all_components = [self.vfs_root]
         for name in path.split('/'):
             if name == '..':

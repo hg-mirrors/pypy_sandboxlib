@@ -5,6 +5,5 @@ syntax: glob
 sandboxlib/_commonstruct_cffi.*
 build
 test/pypy-c-sandbox
-test/lib-python
-test/lib_pypy
 .cache
+.pytest_cache
