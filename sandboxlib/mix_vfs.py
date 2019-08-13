@@ -330,7 +330,10 @@ class MixVFS(object):
 
     @vfs_signature("read(ipi)i")
     def s_read(self, fd, p_buf, count):
-        f = self.vfs_get_file(fd)
+        try:
+            f = self.vfs_get_file(fd)
+        except OSError:
+            return super(MixVFS, self).s_read(fd, p_buf, count)
         if count < 0:
             count = 0
         # don't try to read more than 256KB at once here
@@ -363,12 +366,17 @@ class MixVFS(object):
     @vfs_signature("readdir(p)p")
     def s_readdir(self, p_dir):
         fdir = self.vfs_open_dirs[p_dir.addr]
-        try:
-            name = fdir.readdir()
-        except StopIteration:
-            return NULL
-        subnode = fdir.node.join(name)
-        st = subnode.stat()
+        while True:
+            try:
+                name = fdir.readdir()
+            except StopIteration:
+                return NULL
+            try:
+                subnode = fdir.node.join(name)
+                st = subnode.stat()
+            except OSError:
+                continue
+            break
         dirent = ffi.new("struct dirent *")
         dirent.d_ino = st.st_ino
         dirent.d_reclen = ffi.sizeof("struct dirent")
