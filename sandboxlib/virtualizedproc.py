@@ -77,9 +77,15 @@ class VirtualizedProc(object):
                     errors.append("Bad version number: expected %s, got %s" %
                                   (sandboxio.VERSION, value))
             elif key == "Platform":
-                if value != sys.platform:
+                expected = sys.platform
+                if expected in ['linux2', 'linux3']:
+                    expected = 'linux'
+                got = value
+                if got in ['linux2', 'linux3']:
+                    got = 'linux'
+                if got != expected:
                     errors.append("Bad platform: expected %r, got %r" %
-                                  (sys.platform, value))
+                                  (expected, value))
             elif key == "Funcs":
                 for fnname in value.split(' '):
                     if (fnname.encode('ascii') not in cls_signatures and

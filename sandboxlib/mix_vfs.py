@@ -231,7 +231,7 @@ class MixVFS(object):
         if not os.path.isdir(lib_pypy):
             raise IOError("directory not found: %r" % (lib_pypy,))
         return Dir({
-                 'pypy': File('', mode=0111),
+                 'pypy': File('', mode=0o111),
                  'lib-python': RealDir(lib_python, exclude=exclude),
                  'lib_pypy': RealDir(lib_pypy, exclude=exclude),
                  })
