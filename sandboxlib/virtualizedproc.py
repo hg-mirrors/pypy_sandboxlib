@@ -111,7 +111,7 @@ class VirtualizedProc(object):
                 sandio.write_result(result)
 
     def handle_missing_signature(self, msg, args):
-        raise Exception("subprocess tries to call %s, terminating it" % (
+        raise Exception("subprocess tries to call %r, terminating it" % (
             msg,))
 
     s_access         = sigerror("access(pi)i")
@@ -352,9 +352,9 @@ class VirtualizedProc(object):
     def s_pypy__allow_attach(self):
         return None
 
-    @signature("syscall(ipii)i")
-    def s_syscall(self, *args):
-        raise Exception("subprocess tried to issue a direct syscall()")
+    #@signature("syscall(ipii)i")
+    #def s_syscall(self, *args):
+    #    raise Exception("subprocess tried to issue a direct syscall()")
 
     @signature("ctermid(p)p")
     def s_ctermid(self, s_p):
