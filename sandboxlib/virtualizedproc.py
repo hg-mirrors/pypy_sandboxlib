@@ -11,7 +11,18 @@ def signature(sig):
         return func
     return decorator
 
-def sigerror(sig, error=errno.ENOSYS, returns=-1):
+FATAL = object()
+
+def sigerror(sig, error=FATAL, returns=FATAL):
+    if error is FATAL:
+        assert returns is FATAL, (
+            "changing 'returns' makes no sense without also setting an 'error'")
+        @signature(sig)
+        def s_fatal(self, *args):
+            raise Exception("subprocess tries to call %s, terminating it" % (
+                sig,))
+        return s_fatal
+
     retcode = sig[-1]
     if retcode == 'i':
         if type(returns) is not int:
@@ -35,13 +46,6 @@ def sigerror(sig, error=errno.ENOSYS, returns=-1):
         self.sandio.set_errno(error)
         return returns
     return s_error
-
-def sigfatal(sig):
-    @signature(sig)
-    def s_fatal(self, *args):
-        raise Exception("subprocess tries to call %s, terminating it" % (
-            sig,))
-    return s_fatal
 
 
 class VirtualizedProc(object):
@@ -148,12 +152,12 @@ class VirtualizedProc(object):
     s_fsync          = sigerror("fsync(i)i")
     s_ftruncate      = sigerror("ftruncate(ii)i")
     s_getloadavg     = sigerror("getloadavg(pi)i")
-    s_getlogin       = sigerror("getlogin()p", returns=NULL)
+    s_getlogin       = sigerror("getlogin()p")
     s_getpgid        = sigerror("getpgid(i)i")
-    s_getpgrp        = sigerror("getpgrp()i")    # supposed not to fail...
+    s_getpgrp        = sigerror("getpgrp()i")
     s_getrusage      = sigerror("getrusage(ip)i")
     s_getsid         = sigerror("getsid(i)i")
-    s_initgroups     = sigerror("initgroups(pi)i", errno.EPERM)
+    s_initgroups     = sigerror("initgroups(pi)i")
     s_kill           = sigerror("kill(ii)i")
     s_killpg         = sigerror("killpg(ii)i")
     s_lchown         = sigerror("lchown(pii)i")
@@ -165,41 +169,41 @@ class VirtualizedProc(object):
     s_mknod          = sigerror("mknod(pii)i")
     s_nice           = sigerror("nice(i)i")
     s_open           = sigerror("open(pii)i")
-    s_opendir        = sigerror("opendir(p)p", returns=NULL)
+    s_opendir        = sigerror("opendir(p)p")
     s_openpty        = sigerror("openpty(ppppp)i")
     s_pathconf       = sigerror("pathconf(pi)i")
     s_pipe           = sigerror("pipe(p)i")
     s_pipe2          = sigerror("pipe2(pi)i")
     s_putenv         = sigerror("putenv(p)i")
     s_read           = sigerror("read(ipi)i")
-    s_readdir        = sigerror("readdir(p)p", returns=NULL)
+    s_readdir        = sigerror("readdir(p)p")
     s_readlink       = sigerror("readlink(ppi)i")
     s_rename         = sigerror("rename(pp)i")
     s_rmdir          = sigerror("rmdir(p)i")
     s_select         = sigerror("select(ipppp)i")
-    s_setegid        = sigerror("setegid(i)i", errno.EPERM)
-    s_seteuid        = sigerror("seteuid(i)i", errno.EPERM)
-    s_setgid         = sigerror("setgid(i)i", errno.EPERM)
-    s_setgroups      = sigerror("setgroups(ip)i", errno.EPERM)
-    s_setpgid        = sigerror("setpgid(ii)i", errno.EPERM)
-    s_setpgrp        = sigerror("setpgrp()i", errno.EPERM)
-    s_setregid       = sigerror("setregid(ii)i", errno.EPERM)
-    s_setresgid      = sigerror("setresgid(iii)i", errno.EPERM)
-    s_setresuid      = sigerror("setresuid(iii)i", errno.EPERM)
-    s_setreuid       = sigerror("setreuid(ii)i", errno.EPERM)
+    s_setegid        = sigerror("setegid(i)i")
+    s_seteuid        = sigerror("seteuid(i)i")
+    s_setgid         = sigerror("setgid(i)i")
+    s_setgroups      = sigerror("setgroups(ip)i")
+    s_setpgid        = sigerror("setpgid(ii)i")
+    s_setpgrp        = sigerror("setpgrp()i")
+    s_setregid       = sigerror("setregid(ii)i")
+    s_setresgid      = sigerror("setresgid(iii)i")
+    s_setresuid      = sigerror("setresuid(iii)i")
+    s_setreuid       = sigerror("setreuid(ii)i")
     s_setsid         = sigerror("setsid()i")
-    s_setuid         = sigerror("setuid(i)i", errno.EPERM)
+    s_setuid         = sigerror("setuid(i)i")
     s_stat64         = sigerror("stat64(pp)i")
     s_statvfs        = sigerror("statvfs(pp)i")
     s_symlink        = sigerror("symlink(pp)i")
     s_sysconf        = sigerror("sysconf(i)i")
     s_system         = sigerror("system(p)i")
-    s_tcgetpgrp      = sigerror("tcgetpgrp(i)i", errno.ENOTTY)
-    s_tcsetpgrp      = sigerror("tcsetpgrp(ii)i", errno.ENOTTY)
+    s_tcgetpgrp      = sigerror("tcgetpgrp(i)i", errno.ENOTTY, -1)
+    s_tcsetpgrp      = sigerror("tcsetpgrp(ii)i", errno.ENOTTY, -1)
     s_times          = sigerror("times(p)i")
-    s_ttyname        = sigerror("ttyname(i)p", returns=NULL)
+    s_ttyname        = sigerror("ttyname(i)p", errno.ENOTTY, NULL)
     s_umask          = sigerror("umask(i)i")
-    s_uname          = sigerror("uname(p)i")
+    s_uname          = sigerror("uname(p)i", errno.ENOSYS, -1)
     s_unlink         = sigerror("unlink(p)i")
     s_unsetenv       = sigerror("unsetenv(p)i")
     s_utime          = sigerror("utime(pp)i")
@@ -214,10 +218,10 @@ class VirtualizedProc(object):
     s_faccessat      = sigerror("faccessat(ipii)i")
     s_fchmodat       = sigerror("fchmodat(ipii)i")
     s_fchownat       = sigerror("fchownat(ipiii)i")
-    s_fdopendir      = sigerror("fdopendir(i)p", returns=NULL)
+    s_fdopendir      = sigerror("fdopendir(i)p")
     s_fexecve        = sigerror("fexecve(ipp)i")
     s_fgetxattr      = sigerror("fgetxattr(ippi)i")
-    s_fileno         = sigerror("fileno(p)i", errno.EBADF)
+    s_fileno         = sigerror("fileno(p)i", errno.EBADF, -1)
     s_flistxattr     = sigerror("flistxattr(ipi)i")
     s_fremovexattr   = sigerror("fremovexattr(ip)i")
     s_fsetxattr      = sigerror("fsetxattr(ippii)i")
@@ -237,8 +241,8 @@ class VirtualizedProc(object):
     s_mkfifoat       = sigerror("mkfifoat(ipi)i")
     s_mknodat        = sigerror("mknodat(ipii)i")
     s_openat         = sigerror("openat(ipii)i")
-    s_posix_fadvise  = sigerror("posix_fadvise(iiii)i", returns=errno.ENOSYS)
-    s_posix_fallocate= sigerror("posix_fallocate(iii)i", returns=errno.ENOSYS)
+    s_posix_fadvise  = sigerror("posix_fadvise(iiii)i")
+    s_posix_fallocate= sigerror("posix_fallocate(iii)i")
     s_pread          = sigerror("pread(ipii)i")
     s_pwrite         = sigerror("pwrite(ipii)i")
     s_readlinkat     = sigerror("readlinkat(ippi)i")
@@ -266,19 +270,19 @@ class VirtualizedProc(object):
     s_connect = sigerror("connect(ipi)i")
     s_free_pointer_to_signedp = sigerror("free_pointer_to_signedp(p)i")
     s_free_ptr_to_charp = sigerror("free_ptr_to_charp(p)i")
-    s_freeaddrinfo = sigerror("freeaddrinfo(p)v", returns=None)
+    s_freeaddrinfo = sigerror("freeaddrinfo(p)v")
     s_getaddrinfo = sigerror("getaddrinfo(pppp)i")
-    s_gethostbyaddr = sigerror("gethostbyaddr(pii)p", returns=NULL)
-    s_gethostbyname = sigerror("gethostbyname(p)p", returns=NULL)
+    s_gethostbyaddr = sigerror("gethostbyaddr(pii)p")
+    s_gethostbyname = sigerror("gethostbyname(p)p")
     s_gethostname = sigerror("gethostname(pi)i")
     s_getnameinfo = sigerror("getnameinfo(pipipii)i")
     s_getpeername = sigerror("getpeername(ipp)i")
-    s_getprotobyname = sigerror("getprotobyname(p)p", returns=NULL)
-    s_getservbyname = sigerror("getservbyname(pp)p", returns=NULL)
-    s_getservbyport = sigerror("getservbyport(ip)p", returns=NULL)
+    s_getprotobyname = sigerror("getprotobyname(p)p")
+    s_getservbyname = sigerror("getservbyname(pp)p")
+    s_getservbyport = sigerror("getservbyport(ip)p")
     s_getsockname = sigerror("getsockname(ipp)i")
     s_getsockopt = sigerror("getsockopt(iiipp)i")
-    s_inet_ntop = sigerror("inet_ntop(ippi)p", returns=NULL)
+    s_inet_ntop = sigerror("inet_ntop(ippi)p")
     s_inet_pton = sigerror("inet_pton(ipp)i")
     s_listen = sigerror("listen(ii)i")
     s_memcpy_from_CCHARP_at_offset_and_size = sigerror("memcpy_from_CCHARP_at_offset_and_size(ppii)i")
