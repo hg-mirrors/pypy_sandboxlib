@@ -345,6 +345,8 @@ class MixVFS(object):
     def s_lseek(self, fd, offset, whence):
         if whence not in (0, 1, 2):
             raise OSError(errno.EINVAL, "bad value for lseek(whence)")
+        if fd in (0, 1, 2):
+            raise OSError(errno.ESPIPE, "seeking on stdin/stdout/stderr")
         f = self.vfs_get_file(fd)
         f.seek(offset, whence)
         return f.tell()

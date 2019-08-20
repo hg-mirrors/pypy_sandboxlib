@@ -14,6 +14,7 @@ ffibuilder.cdef("""
     typedef int... gid_t;
     typedef int... off_t;
     typedef int... time_t;
+    typedef int... suseconds_t;
 
     struct stat {
        dev_t     st_dev;         /* ID of device containing file */
@@ -39,10 +40,16 @@ ffibuilder.cdef("""
        char           d_name[...]; /* Null-terminated filename */
        ...;
     };
+
+    struct timeval {
+       time_t      tv_sec;     /* seconds */
+       suseconds_t tv_usec;    /* microseconds */
+    };
 """)
 
 ffibuilder.set_source("sandboxlib._commonstruct_cffi", """
 
+    #include <sys/time.h>
     #include <sys/types.h>
     #include <sys/stat.h>
     #include <unistd.h>
