@@ -20,7 +20,7 @@ Options:
 Note that you can get readline-like behavior with a tool like 'ledit',
 provided you use enough -u options:
 
-    ledit python -u interact.py --lib-path=/path/lib /path/pypy-c-sandbox -u
+    ledit python -u interact.py --lib-path=/path/lib /path/pypy-c-sandbox -u -i
 """
 
 import sys, subprocess

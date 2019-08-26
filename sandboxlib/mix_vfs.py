@@ -1,7 +1,7 @@
 import sys
 import os, errno, stat
 from io import BytesIO
-from .virtualizedproc import signature
+from .virtualizedproc import signature, sigerror
 from .sandboxio import NULL
 from ._commonstruct_cffi import ffi, lib
 
@@ -210,6 +210,10 @@ class MixVFS(object):
         self.vfs_open_fds = {}
         self.vfs_open_dirs = {}
         super(MixVFS, self).__init__(*args, **kwds)
+
+    s_mkdir          = sigerror("mkdir(pi)i", errno.EPERM, -1)
+    s_fcntl          = sigerror("fcntl(iii)i", errno.ENOSYS, -1)
+    s_unlink         = sigerror("unlink(p)i", errno.EPERM, -1)
 
     @staticmethod
     def vfs_pypy_lib_directory(library_path, exclude=["*.pyc", "*.pyo"]):

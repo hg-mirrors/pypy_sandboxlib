@@ -39,10 +39,13 @@ def sigerror(sig, error=FATAL, returns=FATAL):
     else:
         raise ValueError("%r: invalid return type code" % (sig,))
 
+    stubmsg = "subprocess: stub: %s => %s\n" % (
+                    sig, errno.errorcode.get(error, 'Errno %s' % error))
+
     @signature(sig)
     def s_error(self, *args):
         if self.debug_errors:
-            sys.stderr.write("subprocess: stub: %s\n" % sig)
+            sys.stderr.write(stubmsg)
         self.sandio.set_errno(error)
         return returns
     return s_error
@@ -131,7 +134,7 @@ class VirtualizedProc(object):
     s_chown          = sigerror("chown(pii)i")
     s_chroot         = sigerror("chroot(p)i")
     s_clock_getres   = sigerror("clock_getres(ip)i")
-    s_clock_gettime  = sigerror("clock_gettime(ip)i")
+    s_clock_gettime  = sigerror("clock_gettime(ip)i", errno.ENOSYS, -1)
     s_close          = sigerror("close(i)i")
     s_closedir       = sigerror("closedir(p)i")
     s_confstr        = sigerror("confstr(ipi)i", errno.EINVAL, 0)
