@@ -30,7 +30,7 @@ provided you use enough -u options:
 import sys, subprocess
 from sandboxlib import VirtualizedProc
 from sandboxlib.mix_pypy import MixPyPy
-from sandboxlib.mix_vfs import MixVFS, Dir, RealDir
+from sandboxlib.mix_vfs import MixVFS, Dir, RealDir, RealFile
 from sandboxlib.mix_dump_output import MixDumpOutput
 from sandboxlib.mix_accept_input import MixAcceptInput
 
@@ -51,7 +51,9 @@ def main(argv):
     class SandboxedProc(MixPyPy, MixVFS, MixDumpOutput, MixAcceptInput,
                         VirtualizedProc):
         virtual_cwd = "/tmp"
-        vfs_root = Dir({'tmp': Dir({})})
+        vfs_root = Dir({'tmp': Dir({}),
+                        'dev': Dir({'urandom': RealFile('/dev/urandom')}),
+                        })
 
 
     color = True
