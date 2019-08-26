@@ -12,6 +12,8 @@ class MixDumpOutput(object):
     dump_stderr_fmt = "{0}"
     dump_stdout = None    # means use sys.stdout
     dump_stderr = None    # means use sys.stderr
+    raw_stdout = False
+    raw_stderr = False
 
     @staticmethod
     def dump_get_ansi_color_fmt(color_number):
@@ -32,13 +34,17 @@ class MixDumpOutput(object):
         if fd == 1:
             f = self.dump_stdout or sys.stdout
             fmt = self.dump_stdout_fmt
+            raw = self.raw_stdout
         elif fd == 2:
-            f = self.dump_stderr or sys.stdout
+            f = self.dump_stderr or sys.stderr
             fmt = self.dump_stderr_fmt
+            raw = self.raw_stderr
         else:
             return super(MixGrabOutput, self).s_write(fd, p_buf, count)
 
         data = self.sandio.read_buffer(p_buf, count)
-        f.write(fmt.format(self.dump_sanitize(data)))
+        if not raw:
+            data = fmt.format(self.dump_sanitize(data))
+        f.write(data)
         f.flush()
         return count

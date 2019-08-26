@@ -14,6 +14,10 @@ Options:
 
     --nocolor       turn off coloring of the sandboxed-produced output
 
+    --raw-stdout    turn off all sanitization (and coloring) of stdout
+                    (only if you need binary output---don't let it go to
+                    a terminal!)
+
     --debug         check if all "system calls" of the subprocess are handled
                     and dump all errors reported to the subprocess
 
@@ -34,7 +38,7 @@ from sandboxlib.mix_accept_input import MixAcceptInput
 def main(argv):
     from getopt import getopt      # and not gnu_getopt!
     options, arguments = getopt(argv, 'h',
-        ['tmp=', 'lib-path=', 'nocolor', 'debug', 'help'])
+        ['tmp=', 'lib-path=', 'nocolor', 'raw-stdout', 'debug', 'help'])
 
     def help():
         sys.stderr.write(__doc__)
@@ -51,6 +55,7 @@ def main(argv):
 
 
     color = True
+    raw_stdout = False
     executable = arguments[0]
 
     for option, value in options:
@@ -62,6 +67,8 @@ def main(argv):
             arguments[0] = '/lib/pypy'
         elif option == '--nocolor':
             color = False
+        elif option == '--raw-stdout':
+            raw_stdout = True
         elif option == '--debug':
             SandboxedProc.debug_errors = True
         elif option in ['-h', '--help']:
@@ -74,6 +81,8 @@ def main(argv):
             SandboxedProc.dump_get_ansi_color_fmt(32)
         SandboxedProc.dump_stderr_fmt = \
             SandboxedProc.dump_get_ansi_color_fmt(31)
+    if raw_stdout:
+        SandboxedProc.raw_stdout = True
 
     if SandboxedProc.debug_errors:
         popen1 = subprocess.Popen(arguments[:1], executable=executable,
